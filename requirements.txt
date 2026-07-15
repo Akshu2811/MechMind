@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+python-dotenv
+qdrant-client
+openai
+langchain-openai
+langfuse

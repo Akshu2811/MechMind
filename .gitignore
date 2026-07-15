@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.env
+.env.langfuse
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.claude/
+
+data/manuals/*
+!data/manuals/.gitkeep
+data/logs/*
+!data/logs/.gitkeep

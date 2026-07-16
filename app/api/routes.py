@@ -3,7 +3,14 @@ import time
 
 from fastapi import APIRouter, HTTPException
 
-from app.models.schemas import AskRequest, AskResponse, SourceInfo
+from app.models.schemas import (
+    AskRequest,
+    AskResponse,
+    EquipmentStatusItem,
+    EquipmentStatusResponse,
+    SourceInfo,
+)
+from app.services.equipment_status import get_equipment_status
 from app.services.generation import GenerationError, generate_answer
 from app.services.observability import observation, safe_flush
 from app.services.retrieval import RetrievalError, search
@@ -88,7 +95,11 @@ async def ask(request: AskRequest) -> AskResponse:
                 question, len(chunks), latency_ms,
             )
             return AskResponse(
-                answer=result.answer, sources=sources, retrieved_chunk_count=len(chunks)
+                answer=result.answer,
+                sources=sources,
+                retrieved_chunk_count=len(chunks),
+                groundedness=result.groundedness,
+                relevance=result.relevance,
             )
     except HTTPException:
         raise
@@ -101,3 +112,22 @@ async def ask(request: AskRequest) -> AskResponse:
         ) from exc
     finally:
         safe_flush()
+
+
+@router.get("/equipment/status", response_model=EquipmentStatusResponse)
+async def equipment_status() -> EquipmentStatusResponse:
+    units = get_equipment_status()
+    return EquipmentStatusResponse(
+        units=[
+            EquipmentStatusItem(
+                equipment_id=u.equipment_id,
+                equipment_tag=u.equipment_tag,
+                last_alarm_code=u.last_alarm_code,
+                last_event_date=u.last_event_date,
+                days_ago=u.days_ago,
+                resolved=u.resolved,
+                status=u.status,
+            )
+            for u in units
+        ]
+    )

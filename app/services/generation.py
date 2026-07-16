@@ -69,6 +69,8 @@ class GenerationError(Exception):
 class GenerationResult:
     answer: str
     sources: list[RetrievedChunk]
+    groundedness: float | None = None
+    relevance: float | None = None
 
 
 def _format_context(chunks: list[RetrievedChunk]) -> str:
@@ -154,9 +156,13 @@ async def generate_answer(question: str, chunks: list[RetrievedChunk]) -> Genera
         question, len(chunks), latency_ms,
     )
 
-    await _run_evaluators(question=question, chunks=chunks, answer=answer, llm=llm)
+    groundedness, relevance = await _run_evaluators(
+        question=question, chunks=chunks, answer=answer, llm=llm
+    )
 
-    return GenerationResult(answer=answer, sources=chunks)
+    return GenerationResult(
+        answer=answer, sources=chunks, groundedness=groundedness, relevance=relevance
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -205,11 +211,17 @@ async def _run_judge(
 
 async def _run_evaluators(
     question: str, chunks: list[RetrievedChunk], answer: str, llm: ChatOpenAI
-) -> None:
+) -> tuple[float | None, float | None]:
     """Runs groundedness (does the answer stick to the retrieved context?)
     and relevance (does it address the question?) concurrently -- both are
     independent LLM calls, so running them sequentially only adds their
-    latencies together for no benefit."""
+    latencies together for no benefit.
+
+    Both scores are already fully computed by the time this returns (it's
+    awaited before /ask responds), so the caller can surface them directly
+    in the API response instead of requiring a separate LangFuse lookup
+    after the fact. Returns (groundedness, relevance), either None if its
+    judge call failed."""
     context = _format_context(chunks)
     t0 = time.perf_counter()
 
@@ -230,13 +242,18 @@ async def _run_evaluators(
     latency_ms = (time.perf_counter() - t0) * 1000
     logger.info("evaluators completed: latency_ms=%.1f", latency_ms)
 
+    groundedness_score: float | None = None
+    relevance_score: float | None = None
+
     if groundedness_result is not None:
-        score, reasoning = groundedness_result
+        groundedness_score, reasoning = groundedness_result
         safe_score_current_trace(
-            name="groundedness", value=score, data_type="NUMERIC", comment=reasoning
+            name="groundedness", value=groundedness_score, data_type="NUMERIC", comment=reasoning
         )
     if relevance_result is not None:
-        score, reasoning = relevance_result
+        relevance_score, reasoning = relevance_result
         safe_score_current_trace(
-            name="relevance", value=score, data_type="NUMERIC", comment=reasoning
+            name="relevance", value=relevance_score, data_type="NUMERIC", comment=reasoning
         )
+
+    return groundedness_score, relevance_score

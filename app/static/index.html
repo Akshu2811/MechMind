@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MechMind — Maintenance Assistant</title>
+<style>
+  :root {
+    --bg: #0c0e10;
+    --bg-elevated: #131619;
+    --bg-card: #181c20;
+    --bg-card-hover: #1e2328;
+    --border: #2a2f35;
+    --border-soft: #22262b;
+    --text: #e7e5e1;
+    --text-muted: #8d9399;
+    --text-faint: #62686e;
+    --accent: #d3a45c;
+    --accent-strong: #e8bd7a;
+    --accent-dim: #6b5433;
+    --green: #5e9e78;
+    --green-dim: #24322a;
+    --amber-status: #cf9b4a;
+    --amber-dim: #362c1c;
+    --warn: #c9853f;
+    --font-sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+  }
+
+  body {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ---------------- Sidebar ---------------- */
+
+  #sidebar {
+    background: var(--bg-elevated);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 20px 16px;
+  }
+
+  #sidebar h2 {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 4px 4px;
+    font-weight: 600;
+  }
+
+  #sidebar .hint {
+    font-size: 11px;
+    color: var(--text-faint);
+    margin: 0 0 16px 4px;
+  }
+
+  .unit-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-left: 3px solid var(--text-faint);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease;
+  }
+
+  .unit-card:hover {
+    background: var(--bg-card-hover);
+  }
+
+  .unit-card.status-green { border-left-color: var(--green); }
+  .unit-card.status-amber { border-left-color: var(--amber-status); }
+
+  .unit-card .row-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+
+  .unit-id {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .unit-tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-faint);
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .status-dot.status-green { background: var(--green); }
+  .status-dot.status-amber { background: var(--amber-status); }
+
+  .unit-alarm {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--accent-strong);
+    margin-bottom: 2px;
+  }
+
+  .unit-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .unit-meta .sep { margin: 0 5px; color: var(--text-faint); }
+
+  /* ---------------- Main panel ---------------- */
+
+  #main {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 28px 36px 40px;
+  }
+
+  header.top {
+    margin-bottom: 22px;
+  }
+
+  header.top h1 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  header.top .accent-word { color: var(--accent-strong); }
+
+  header.top p {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  #chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+
+  .chip {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 12.5px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-family: var(--font-sans);
+    transition: border-color 0.12s ease, color 0.12s ease;
+  }
+
+  .chip:hover {
+    border-color: var(--accent-dim);
+    color: var(--accent-strong);
+  }
+
+  #ask-form {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  #question {
+    flex: 1;
+    resize: vertical;
+    min-height: 52px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    padding: 12px 14px;
+  }
+
+  #question:focus {
+    outline: none;
+    border-color: var(--accent-dim);
+  }
+
+  #ask-btn {
+    background: var(--accent);
+    color: #1a1408;
+    border: none;
+    border-radius: 8px;
+    padding: 0 22px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.12s ease;
+  }
+
+  #ask-btn:hover:not(:disabled) { background: var(--accent-strong); }
+  #ask-btn:disabled { background: var(--accent-dim); color: var(--text-faint); cursor: default; }
+
+  #result {
+    display: none;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 22px;
+  }
+
+  #result.visible { display: block; }
+
+  .loading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .answer-text {
+    font-size: 14.5px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    margin: 0 0 16px;
+  }
+
+  .error-text {
+    font-size: 14px;
+    color: var(--warn);
+    margin: 0;
+  }
+
+  .badges {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    letter-spacing: 0.01em;
+  }
+
+  .badge-good {
+    background: var(--green-dim);
+    color: var(--green);
+    border: 1px solid rgba(94, 158, 120, 0.35);
+  }
+
+  .badge-warn {
+    background: var(--amber-dim);
+    color: var(--amber-status);
+    border: 1px solid rgba(207, 155, 74, 0.35);
+  }
+
+  .badge-neutral {
+    background: var(--bg-card);
+    color: var(--text-faint);
+    border: 1px solid var(--border);
+  }
+
+  details.sources {
+    border-top: 1px solid var(--border-soft);
+    padding-top: 12px;
+  }
+
+  details.sources summary {
+    cursor: pointer;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  details.sources summary:hover { color: var(--accent-strong); }
+
+  .source-list {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+  }
+
+  .source-item {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border-soft);
+    font-size: 12.5px;
+  }
+
+  .source-item:last-child { border-bottom: none; }
+
+  .source-file {
+    font-family: var(--font-mono);
+    color: var(--text);
+  }
+
+  .source-section {
+    color: var(--text-muted);
+    margin-left: 8px;
+  }
+
+  .source-score {
+    font-family: var(--font-mono);
+    color: var(--text-faint);
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+  <aside id="sidebar">
+    <h2>Equipment Status</h2>
+    <p class="hint">Click a unit to draft a status question</p>
+    <div id="unit-list"></div>
+  </aside>
+
+  <main id="main">
+    <header class="top">
+      <h1>Mech<span class="accent-word">Mind</span></h1>
+      <p>Ask questions about equipment manuals and maintenance history.</p>
+    </header>
+
+    <div id="chips"></div>
+
+    <form id="ask-form">
+      <textarea id="question" placeholder="Ask about an alarm code, equipment history, or installation conditions..."></textarea>
+      <button id="ask-btn" type="submit">Ask</button>
+    </form>
+
+    <div id="result"></div>
+  </main>
+
+<script>
+  const EXAMPLE_QUESTIONS = [
+    "What is the recommended action for OIL_PRESS_03?",
+    "Has Compressor-2 had recurring issues?",
+    "Why is Pump-3 overheating?",
+    "What is the capital of France?",
+    "What should I check if Motor-2's vibration sensor is reporting a fault?",
+  ];
+
+  const questionEl = document.getElementById("question");
+  const resultEl = document.getElementById("result");
+  const askForm = document.getElementById("ask-form");
+  const askBtn = document.getElementById("ask-btn");
+  const unitListEl = document.getElementById("unit-list");
+  const chipsEl = document.getElementById("chips");
+
+  function fillQuestion(text) {
+    questionEl.value = text;
+    questionEl.focus();
+  }
+
+  function renderChips() {
+    chipsEl.innerHTML = "";
+    for (const q of EXAMPLE_QUESTIONS) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip";
+      chip.textContent = q;
+      chip.addEventListener("click", () => fillQuestion(q));
+      chipsEl.appendChild(chip);
+    }
+  }
+
+  function renderUnits(units) {
+    unitListEl.innerHTML = "";
+    for (const u of units) {
+      const card = document.createElement("div");
+      card.className = `unit-card status-${u.status}`;
+
+      const meta = u.last_alarm_code
+        ? `${u.days_ago}d ago<span class="sep">&middot;</span>${u.resolved ? "Resolved" : "Unresolved"}`
+        : "No log history";
+
+      card.innerHTML = `
+        <div class="row-top">
+          <span class="unit-id">${u.equipment_id}</span>
+          <span class="status-dot status-${u.status}"></span>
+        </div>
+        <div class="unit-tag">${u.equipment_tag || ""}</div>
+        ${u.last_alarm_code ? `<div class="unit-alarm">${u.last_alarm_code}</div>` : ""}
+        <div class="unit-meta">${meta}</div>
+      `;
+      card.addEventListener("click", () => fillQuestion(`What's the status of ${u.equipment_id}?`));
+      unitListEl.appendChild(card);
+    }
+  }
+
+  async function loadEquipmentStatus() {
+    try {
+      const res = await fetch("/equipment/status");
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const data = await res.json();
+      renderUnits(data.units);
+    } catch (err) {
+      unitListEl.innerHTML = `<p class="error-text" style="font-size:12px;">Couldn't load equipment status.</p>`;
+      console.error("equipment status load failed", err);
+    }
+  }
+
+  function scoreBadge(label, score) {
+    if (score === null || score === undefined) {
+      return `<span class="badge badge-neutral">${label}: N/A</span>`;
+    }
+    const pct = score.toFixed(2);
+    if (score >= 0.7) {
+      return `<span class="badge badge-good">&#10003; ${label} (${pct})</span>`;
+    }
+    return `<span class="badge badge-warn">&#9888; ${label} (${pct})</span>`;
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function renderAnswer(data) {
+    const badges = `
+      <div class="badges">
+        ${scoreBadge("Grounded", data.groundedness)}
+        ${scoreBadge("Relevant", data.relevance)}
+      </div>
+    `;
+
+    const sourceItems = (data.sources || [])
+      .map(
+        (s) => `
+        <li class="source-item">
+          <span><span class="source-file">${escapeHtml(s.source_file)}</span>${
+            s.section_title ? `<span class="source-section">${escapeHtml(s.section_title)}</span>` : ""
+          }</span>
+          <span class="source-score">${s.score.toFixed(3)}</span>
+        </li>`
+      )
+      .join("");
+
+    const sources = `
+      <details class="sources">
+        <summary>Sources (${data.retrieved_chunk_count})</summary>
+        <ul class="source-list">${sourceItems || "<li class=\"source-item\">No sources retrieved.</li>"}</ul>
+      </details>
+    `;
+
+    resultEl.innerHTML = `
+      <p class="answer-text">${escapeHtml(data.answer)}</p>
+      ${badges}
+      ${sources}
+    `;
+  }
+
+  function renderLoading() {
+    resultEl.classList.add("visible");
+    resultEl.innerHTML = `<div class="loading"><span class="spinner"></span> Retrieving context and generating an answer...</div>`;
+  }
+
+  function renderError(message) {
+    resultEl.classList.add("visible");
+    resultEl.innerHTML = `<p class="error-text">${escapeHtml(message)}</p>`;
+  }
+
+  askForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const question = questionEl.value.trim();
+    if (!question) return;
+
+    askBtn.disabled = true;
+    renderLoading();
+
+    try {
+      const res = await fetch("/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || `Request failed (${res.status})`);
+      }
+      renderAnswer(data);
+    } catch (err) {
+      renderError(err.message || "Something went wrong.");
+    } finally {
+      askBtn.disabled = false;
+    }
+  });
+
+  renderChips();
+  loadEquipmentStatus();
+</script>
+</body>
+</html>

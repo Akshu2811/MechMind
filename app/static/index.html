@@ -162,6 +162,10 @@
     flex-direction: column;
     overflow-y: auto;
     padding: 28px 36px 40px;
+    background:
+      radial-gradient(720px 380px at 22% -8%, rgba(211, 164, 92, 0.09), transparent 65%),
+      radial-gradient(620px 320px at 78% 2%, rgba(192, 96, 90, 0.055), transparent 65%),
+      var(--bg);
   }
 
   header.top {
@@ -338,32 +342,46 @@
 
   .badge {
     display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 11.5px;
+    align-items: stretch;
+    height: 22px;
+    font-size: 11px;
     font-weight: 600;
-    padding: 4px 10px;
-    border-radius: 999px;
-    letter-spacing: 0.01em;
-  }
-
-  .badge-good {
-    background: var(--green-dim);
-    color: var(--green);
-    border: 1px solid rgba(94, 158, 120, 0.35);
-  }
-
-  .badge-warn {
-    background: var(--amber-dim);
-    color: var(--amber-status);
-    border: 1px solid rgba(207, 155, 74, 0.35);
-  }
-
-  .badge-neutral {
+    padding-right: 10px;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
     background: var(--bg-card);
-    color: var(--text-faint);
     border: 1px solid var(--border);
+    overflow: hidden;
   }
+
+  .badge-bar {
+    width: 4px;
+    flex-shrink: 0;
+    margin-right: 8px;
+  }
+
+  .badge-label {
+    display: flex;
+    align-items: center;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-right: 6px;
+  }
+
+  .badge-pct {
+    display: flex;
+    align-items: center;
+    font-family: var(--font-mono);
+  }
+
+  .badge-good .badge-bar { background: var(--green); }
+  .badge-good .badge-pct { color: var(--green); }
+
+  .badge-warn .badge-bar { background: var(--amber-status); }
+  .badge-warn .badge-pct { color: var(--amber-status); }
+
+  .badge-neutral .badge-bar { background: var(--text-faint); }
+  .badge-neutral .badge-pct { color: var(--text-faint); }
 
   details.sources {
     border-top: 1px solid var(--border-soft);
@@ -371,14 +389,38 @@
   }
 
   details.sources summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     cursor: pointer;
-    font-size: 12.5px;
+    font-size: 11px;
     color: var(--text-muted);
-    font-weight: 600;
-    letter-spacing: 0.02em;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    list-style: none;
   }
 
+  details.sources summary::-webkit-details-marker { display: none; }
   details.sources summary:hover { color: var(--accent-strong); }
+
+  .chevron {
+    width: 7px;
+    height: 7px;
+    border-right: 1.5px solid var(--text-faint);
+    border-bottom: 1.5px solid var(--text-faint);
+    transform: rotate(-45deg);
+    transition: transform 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  details.sources[open] .chevron {
+    transform: rotate(45deg);
+  }
+
+  details.sources summary:hover .chevron {
+    border-color: var(--accent-strong);
+  }
 
   .source-list {
     list-style: none;
@@ -422,12 +464,45 @@
     border-top: 1px solid var(--border-soft);
   }
 
+  .activity-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
   #activity h2 {
+    display: flex;
+    align-items: center;
+    gap: 7px;
     font-size: 11px;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--text-muted);
-    margin: 0 0 10px;
+    margin: 0;
+    font-weight: 600;
+  }
+
+  .pulse-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 0 0 rgba(94, 158, 120, 0.5);
+    animation: activity-pulse 2.2s ease-out infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes activity-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(94, 158, 120, 0.45); }
+    70% { box-shadow: 0 0 0 5px rgba(94, 158, 120, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(94, 158, 120, 0); }
+  }
+
+  .live-indicator {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--text-faint);
     font-weight: 600;
   }
 
@@ -480,7 +555,10 @@
     <div id="result"></div>
 
     <section id="activity">
-      <h2>Recent Activity</h2>
+      <div class="activity-header">
+        <h2><span class="pulse-dot"></span>Recent Activity</h2>
+        <span class="live-indicator">&#9679; LIVE</span>
+      </div>
       <div id="activity-list"></div>
     </section>
   </main>
@@ -613,14 +691,13 @@
   }
 
   function scoreBadge(label, score) {
+    const labelUpper = label.toUpperCase();
     if (score === null || score === undefined) {
-      return `<span class="badge badge-neutral">${label}: N/A</span>`;
+      return `<span class="badge badge-neutral"><span class="badge-bar"></span><span class="badge-label">${labelUpper}</span><span class="badge-pct">N/A</span></span>`;
     }
-    const pct = score.toFixed(2);
-    if (score >= 0.7) {
-      return `<span class="badge badge-good">&#10003; ${label} (${pct})</span>`;
-    }
-    return `<span class="badge badge-warn">&#9888; ${label} (${pct})</span>`;
+    const pct = Math.round(score * 100);
+    const cls = score >= 0.7 ? "badge-good" : "badge-warn";
+    return `<span class="badge ${cls}"><span class="badge-bar"></span><span class="badge-label">${labelUpper}</span><span class="badge-pct">${pct}%</span></span>`;
   }
 
   function escapeHtml(str) {
@@ -656,9 +733,10 @@
       )
       .join("");
 
+    const sourceCount = data.retrieved_chunk_count;
     const sources = `
       <details class="sources">
-        <summary>Sources (${data.retrieved_chunk_count})</summary>
+        <summary><span class="chevron"></span>${sourceCount} SOURCE${sourceCount === 1 ? "" : "S"} REFERENCED</summary>
         <ul class="source-list">${sourceItems || "<li class=\"source-item\">No sources retrieved.</li>"}</ul>
       </details>
     `;

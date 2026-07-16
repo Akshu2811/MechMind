@@ -8,10 +8,12 @@ from app.models.schemas import (
     AskResponse,
     EquipmentStatusItem,
     EquipmentStatusResponse,
+    RecentActivityItem,
+    RecentActivityResponse,
     SourceInfo,
 )
-from app.services.equipment_status import get_equipment_status
-from app.services.generation import GenerationError, generate_answer
+from app.services.equipment_status import get_equipment_status, get_recent_activity
+from app.services.generation import GENERATION_MODEL, GenerationError, generate_answer
 from app.services.observability import observation, safe_flush
 from app.services.retrieval import RetrievalError, search
 
@@ -62,7 +64,12 @@ async def ask(request: AskRequest) -> AskResponse:
                     "ask completed: question=%r chunk_count=0 latency_ms=%.1f",
                     question, latency_ms,
                 )
-                return AskResponse(answer=answer, sources=[], retrieved_chunk_count=0)
+                return AskResponse(
+                    answer=answer,
+                    sources=[],
+                    retrieved_chunk_count=0,
+                    latency_ms=round(latency_ms, 1),
+                )
 
             try:
                 result = await generate_answer(question, chunks)
@@ -100,6 +107,8 @@ async def ask(request: AskRequest) -> AskResponse:
                 retrieved_chunk_count=len(chunks),
                 groundedness=result.groundedness,
                 relevance=result.relevance,
+                latency_ms=round(latency_ms, 1),
+                model=GENERATION_MODEL,
             )
     except HTTPException:
         raise
@@ -126,8 +135,26 @@ async def equipment_status() -> EquipmentStatusResponse:
                 last_event_date=u.last_event_date,
                 days_ago=u.days_ago,
                 resolved=u.resolved,
+                severity=u.severity,
                 status=u.status,
             )
             for u in units
+        ]
+    )
+
+
+@router.get("/equipment/recent-activity", response_model=RecentActivityResponse)
+async def recent_activity() -> RecentActivityResponse:
+    entries = get_recent_activity(limit=5)
+    return RecentActivityResponse(
+        entries=[
+            RecentActivityItem(
+                equipment_id=e.equipment_id,
+                alarm_code=e.alarm_code,
+                date=e.date,
+                days_ago=e.days_ago,
+                resolved=e.resolved,
+            )
+            for e in entries
         ]
     )

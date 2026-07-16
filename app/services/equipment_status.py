@@ -38,14 +38,23 @@ KNOWN_EQUIPMENT_IDS = [
     "Compressor-2",
 ]
 
-# A resolved event older than this is considered settled (green); anything
-# unresolved, or resolved more recently than this, is still worth an
-# operator's attention (amber).
-RESOLVED_STALE_DAYS = 14
+# A resolved event older than this is considered settled (green); resolved
+# but more recent than this is still amber. Unresolved events escalate to
+# red only if their severity is Critical/Safety -- an unresolved Warning
+# stays amber rather than crying wolf.
+RESOLVED_STALE_DAYS = 10
+RED_SEVERITIES = {"critical", "safety"}
+# Red is driven by *any* unresolved Critical/Safety event in this window, not
+# just the single latest log row -- a unit's most recent entry can be a minor
+# resolved warning while an older-but-still-open critical issue is sitting
+# unresolved a few weeks back, and that shouldn't get masked.
+RED_LOOKBACK_DAYS = 30
 
 # Matches chunk_maintenance_log's fixed text template (ingestion.py):
 # "Log {log_id} -- {equipment_id} ({equipment_tag}) on {date}: ..."
 TAG_RE = re.compile(r"^Log\s+\S+\s+--\s+\S+\s+\(([^)]+)\)")
+# "... Alarm {alarm_code} ({severity}). Technician notes: ..."
+SEVERITY_RE = re.compile(r"Alarm\s+\S+\s+\(([^)]+)\)")
 # "... Downtime: {downtime_hours} hours. Resolved: {resolved}."
 RESOLVED_RE = re.compile(r"Resolved:\s*(yes|no)\b", re.IGNORECASE)
 
@@ -58,7 +67,17 @@ class EquipmentStatus:
     last_event_date: str | None
     days_ago: int | None
     resolved: bool | None
+    severity: str | None
     status: str
+
+
+@dataclass
+class RecentActivityEntry:
+    equipment_id: str
+    alarm_code: str | None
+    date: str
+    days_ago: int
+    resolved: bool | None
 
 
 def _fetch_log_chunk_payloads() -> list[dict]:
@@ -102,15 +121,14 @@ def _sort_key(payload: dict) -> tuple[str, str]:
     return payload.get("date", ""), payload.get("log_id", "")
 
 
-def _latest_payload_by_equipment() -> dict[str, dict]:
-    latest: dict[str, dict] = {}
-    for payload in _fetch_log_chunk_payloads():
+def _group_payloads_by_equipment(payloads: list[dict]) -> dict[str, list[dict]]:
+    groups: dict[str, list[dict]] = {}
+    for payload in payloads:
         eid = payload.get("equipment_id")
         if not eid:
             continue
-        if eid not in latest or _sort_key(payload) > _sort_key(latest[eid]):
-            latest[eid] = payload
-    return latest
+        groups.setdefault(eid, []).append(payload)
+    return groups
 
 
 def _extract_tag(text: str) -> str | None:
@@ -123,14 +141,41 @@ def _extract_resolved(text: str) -> bool | None:
     return m.group(1).lower() == "yes" if m else None
 
 
+def _extract_severity(text: str) -> str | None:
+    m = SEVERITY_RE.search(text)
+    return m.group(1) if m else None
+
+
+def _has_recent_unresolved_critical(payloads: list[dict], today: date) -> bool:
+    for payload in payloads:
+        date_str = payload.get("date")
+        if not date_str:
+            continue
+        event_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        if (today - event_date).days > RED_LOOKBACK_DAYS:
+            continue
+        text = payload.get("text", "")
+        if _extract_resolved(text) is False and (_extract_severity(text) or "").lower() in RED_SEVERITIES:
+            return True
+    return False
+
+
+def _classify(resolved: bool | None, days_ago: int, has_recent_unresolved_critical: bool) -> str:
+    if has_recent_unresolved_critical:
+        return "red"
+    if resolved and days_ago > RESOLVED_STALE_DAYS:
+        return "green"
+    return "amber"
+
+
 def get_equipment_status(today: date | None = None) -> list[EquipmentStatus]:
     today = today or date.today()
-    latest = _latest_payload_by_equipment()
+    grouped = _group_payloads_by_equipment(_fetch_log_chunk_payloads())
 
     results: list[EquipmentStatus] = []
     for eid in KNOWN_EQUIPMENT_IDS:
-        payload = latest.get(eid)
-        if payload is None:
+        unit_payloads = grouped.get(eid, [])
+        if not unit_payloads:
             results.append(
                 EquipmentStatus(
                     equipment_id=eid,
@@ -139,16 +184,21 @@ def get_equipment_status(today: date | None = None) -> list[EquipmentStatus]:
                     last_event_date=None,
                     days_ago=None,
                     resolved=None,
+                    severity=None,
                     status="amber",
                 )
             )
             continue
 
+        payload = max(unit_payloads, key=_sort_key)
         text = payload.get("text", "")
         event_date = datetime.strptime(payload["date"], "%Y-%m-%d").date()
         days_ago = (today - event_date).days
         resolved = _extract_resolved(text)
-        status = "green" if resolved and days_ago > RESOLVED_STALE_DAYS else "amber"
+        severity = _extract_severity(text)
+        status = _classify(
+            resolved, days_ago, _has_recent_unresolved_critical(unit_payloads, today)
+        )
 
         results.append(
             EquipmentStatus(
@@ -158,8 +208,31 @@ def get_equipment_status(today: date | None = None) -> list[EquipmentStatus]:
                 last_event_date=payload["date"],
                 days_ago=days_ago,
                 resolved=resolved,
+                severity=severity,
                 status=status,
             )
         )
 
     return results
+
+
+def get_recent_activity(limit: int = 5, today: date | None = None) -> list[RecentActivityEntry]:
+    """Most recent log entries across all units, newest first -- feeds the
+    UI's "recent activity" strip. Reuses the same Qdrant-backed payload scan
+    as get_equipment_status() rather than a separate data path."""
+    today = today or date.today()
+    payloads = sorted(_fetch_log_chunk_payloads(), key=_sort_key, reverse=True)
+
+    entries: list[RecentActivityEntry] = []
+    for payload in payloads[:limit]:
+        event_date = datetime.strptime(payload["date"], "%Y-%m-%d").date()
+        entries.append(
+            RecentActivityEntry(
+                equipment_id=payload.get("equipment_id", "?"),
+                alarm_code=payload.get("alarm_code"),
+                date=payload["date"],
+                days_ago=(today - event_date).days,
+                resolved=_extract_resolved(payload.get("text", "")),
+            )
+        )
+    return entries

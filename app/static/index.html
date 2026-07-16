@@ -22,7 +22,12 @@
     --green-dim: #24322a;
     --amber-status: #cf9b4a;
     --amber-dim: #362c1c;
+    --red-status: #c0605a;
+    --red-dim: #382323;
     --warn: #c9853f;
+    --neutral-btn: #e7e5e1;
+    --neutral-btn-hover: #f5f4f1;
+    --neutral-btn-text: #15181b;
     --font-sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --font-mono: ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", Menlo, monospace;
   }
@@ -86,11 +91,13 @@
 
   .unit-card.status-green { border-left-color: var(--green); }
   .unit-card.status-amber { border-left-color: var(--amber-status); }
+  .unit-card.status-red { border-left-color: var(--red-status); }
 
   .unit-card .row-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 8px;
     margin-bottom: 4px;
   }
 
@@ -107,6 +114,13 @@
     color: var(--text-faint);
   }
 
+  .status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+  }
+
   .status-dot {
     width: 8px;
     height: 8px;
@@ -115,11 +129,22 @@
   }
   .status-dot.status-green { background: var(--green); }
   .status-dot.status-amber { background: var(--amber-status); }
+  .status-dot.status-red { background: var(--red-status); }
+
+  .status-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+  .status-label.status-green { color: var(--green); }
+  .status-label.status-amber { color: var(--amber-status); }
+  .status-label.status-red { color: var(--red-status); }
 
   .unit-alarm {
     font-family: var(--font-mono);
     font-size: 12px;
-    color: var(--accent-strong);
+    color: var(--text);
     margin-bottom: 2px;
   }
 
@@ -185,7 +210,7 @@
   #ask-form {
     display: flex;
     gap: 10px;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
   }
 
   #question {
@@ -207,8 +232,8 @@
   }
 
   #ask-btn {
-    background: var(--accent);
-    color: #1a1408;
+    background: var(--neutral-btn);
+    color: var(--neutral-btn-text);
     border: none;
     border-radius: 8px;
     padding: 0 22px;
@@ -218,8 +243,42 @@
     transition: background 0.12s ease;
   }
 
-  #ask-btn:hover:not(:disabled) { background: var(--accent-strong); }
-  #ask-btn:disabled { background: var(--accent-dim); color: var(--text-faint); cursor: default; }
+  #ask-btn:hover:not(:disabled) { background: var(--neutral-btn-hover); }
+  #ask-btn:disabled { background: var(--border); color: var(--text-faint); cursor: default; }
+
+  /* ---------------- History (collapsed prior Q&A) ---------------- */
+
+  #history {
+    margin-bottom: 14px;
+  }
+
+  .history-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+  }
+
+  .history-item summary {
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-muted);
+    list-style: none;
+  }
+
+  .history-item summary::-webkit-details-marker { display: none; }
+  .history-item summary::before { content: "\25b8  "; color: var(--text-faint); }
+  .history-item[open] summary::before { content: "\25be  "; }
+  .history-item summary:hover { color: var(--text); }
+
+  .history-body {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-soft);
+  }
+
+  /* ---------------- Current result ---------------- */
 
   #result {
     display: none;
@@ -227,6 +286,7 @@
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 20px 22px;
+    margin-bottom: 24px;
   }
 
   #result.visible { display: block; }
@@ -246,6 +306,7 @@
     border-top-color: var(--accent);
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
   }
 
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -254,7 +315,13 @@
     font-size: 14.5px;
     line-height: 1.65;
     white-space: pre-wrap;
-    margin: 0 0 16px;
+    margin: 0 0 10px;
+  }
+
+  .trust-caption {
+    font-size: 11.5px;
+    color: var(--text-faint);
+    margin: 0 0 14px;
   }
 
   .error-text {
@@ -346,6 +413,46 @@
     color: var(--text-faint);
     flex-shrink: 0;
   }
+
+  /* ---------------- Recent activity feed ---------------- */
+
+  #activity {
+    margin-top: auto;
+    padding-top: 18px;
+    border-top: 1px solid var(--border-soft);
+  }
+
+  #activity h2 {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 10px;
+    font-weight: 600;
+  }
+
+  .activity-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: baseline;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    padding: 5px 0;
+  }
+
+  .activity-row .eid {
+    font-family: var(--font-mono);
+    color: var(--text);
+  }
+
+  .activity-row .alarm {
+    font-family: var(--font-mono);
+  }
+
+  .activity-row .dash {
+    color: var(--text-faint);
+  }
 </style>
 </head>
 <body>
@@ -369,7 +476,13 @@
       <button id="ask-btn" type="submit">Ask</button>
     </form>
 
+    <div id="history"></div>
     <div id="result"></div>
+
+    <section id="activity">
+      <h2>Recent Activity</h2>
+      <div id="activity-list"></div>
+    </section>
   </main>
 
 <script>
@@ -381,12 +494,24 @@
     "What should I check if Motor-2's vibration sensor is reporting a fault?",
   ];
 
+  const LOADING_STEPS = [
+    { text: "Searching pump_manual.md, motor_manual.md, compressor_manual.md, maintenance_logs.csv...", delay: 0 },
+    { text: "Analyzing retrieved sections...", delay: 2000 },
+    { text: "Generating grounded answer...", delay: 4000 },
+  ];
+
   const questionEl = document.getElementById("question");
   const resultEl = document.getElementById("result");
+  const historyEl = document.getElementById("history");
   const askForm = document.getElementById("ask-form");
   const askBtn = document.getElementById("ask-btn");
   const unitListEl = document.getElementById("unit-list");
   const chipsEl = document.getElementById("chips");
+  const activityListEl = document.getElementById("activity-list");
+
+  let loadingTimers = [];
+  let history = []; // { question, html }
+  let current = null; // { question, html }
 
   function fillQuestion(text) {
     questionEl.value = text;
@@ -405,6 +530,12 @@
     }
   }
 
+  function statusLabel(status) {
+    if (status === "green") return "OK";
+    if (status === "red") return "⚠ Unresolved";
+    return "⚠ Recent";
+  }
+
   function renderUnits(units) {
     unitListEl.innerHTML = "";
     for (const u of units) {
@@ -418,7 +549,10 @@
       card.innerHTML = `
         <div class="row-top">
           <span class="unit-id">${u.equipment_id}</span>
-          <span class="status-dot status-${u.status}"></span>
+          <span class="status-indicator">
+            <span class="status-label status-${u.status}">${statusLabel(u.status)}</span>
+            <span class="status-dot status-${u.status}"></span>
+          </span>
         </div>
         <div class="unit-tag">${u.equipment_tag || ""}</div>
         ${u.last_alarm_code ? `<div class="unit-alarm">${u.last_alarm_code}</div>` : ""}
@@ -441,6 +575,43 @@
     }
   }
 
+  function renderActivity(entries) {
+    if (!entries.length) {
+      activityListEl.innerHTML = `<p style="font-size:12.5px;color:var(--text-faint);">No recent activity.</p>`;
+      return;
+    }
+    activityListEl.innerHTML = entries
+      .map((e) => {
+        const resolvedText = e.resolved === null || e.resolved === undefined
+          ? "Unknown"
+          : e.resolved ? "Resolved" : "Unresolved";
+        return `
+          <div class="activity-row">
+            <span class="eid">${escapeHtml(e.equipment_id)}</span>
+            <span class="dash">&mdash;</span>
+            <span class="alarm">${escapeHtml(e.alarm_code || "?")}</span>
+            <span class="dash">&mdash;</span>
+            <span>${e.days_ago}d ago</span>
+            <span class="dash">&mdash;</span>
+            <span>${resolvedText}</span>
+          </div>
+        `;
+      })
+      .join("");
+  }
+
+  async function loadRecentActivity() {
+    try {
+      const res = await fetch("/equipment/recent-activity");
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const data = await res.json();
+      renderActivity(data.entries);
+    } catch (err) {
+      activityListEl.innerHTML = `<p class="error-text" style="font-size:12px;">Couldn't load recent activity.</p>`;
+      console.error("recent activity load failed", err);
+    }
+  }
+
   function scoreBadge(label, score) {
     if (score === null || score === undefined) {
       return `<span class="badge badge-neutral">${label}: N/A</span>`;
@@ -458,7 +629,14 @@
     return div.innerHTML;
   }
 
-  function renderAnswer(data) {
+  function trustCaption(data) {
+    const parts = [`Answered in ${(data.latency_ms / 1000).toFixed(1)}s`];
+    parts.push(`${data.retrieved_chunk_count} source${data.retrieved_chunk_count === 1 ? "" : "s"} retrieved`);
+    if (data.model) parts.push(data.model);
+    return parts.join(" &middot; ");
+  }
+
+  function answerHtml(data) {
     const badges = `
       <div class="badges">
         ${scoreBadge("Grounded", data.groundedness)}
@@ -485,21 +663,66 @@
       </details>
     `;
 
-    resultEl.innerHTML = `
+    return `
       <p class="answer-text">${escapeHtml(data.answer)}</p>
+      <p class="trust-caption">${trustCaption(data)}</p>
       ${badges}
       ${sources}
     `;
   }
 
-  function renderLoading() {
+  function renderHistory() {
+    historyEl.innerHTML = history
+      .map(
+        (item) => `
+        <details class="history-item">
+          <summary>${escapeHtml(item.question)}</summary>
+          <div class="history-body">${item.html}</div>
+        </details>
+      `
+      )
+      .join("");
+  }
+
+  function archiveCurrentIfAny() {
+    if (current) {
+      history.push(current);
+      current = null;
+      renderHistory();
+    }
+  }
+
+  function clearLoadingTimers() {
+    loadingTimers.forEach(clearTimeout);
+    loadingTimers = [];
+  }
+
+  function startLoadingSequence() {
+    clearLoadingTimers();
     resultEl.classList.add("visible");
-    resultEl.innerHTML = `<div class="loading"><span class="spinner"></span> Retrieving context and generating an answer...</div>`;
+    resultEl.innerHTML = `<div class="loading"><span class="spinner"></span><span id="loading-text">${LOADING_STEPS[0].text}</span></div>`;
+    const textEl = document.getElementById("loading-text");
+    for (const step of LOADING_STEPS.slice(1)) {
+      const timer = setTimeout(() => {
+        if (document.getElementById("loading-text")) {
+          document.getElementById("loading-text").textContent = step.text;
+        }
+      }, step.delay);
+      loadingTimers.push(timer);
+    }
+  }
+
+  function renderAnswer(question, data) {
+    clearLoadingTimers();
+    resultEl.innerHTML = answerHtml(data);
+    current = { question, html: resultEl.innerHTML };
   }
 
   function renderError(message) {
+    clearLoadingTimers();
     resultEl.classList.add("visible");
     resultEl.innerHTML = `<p class="error-text">${escapeHtml(message)}</p>`;
+    current = null;
   }
 
   askForm.addEventListener("submit", async (e) => {
@@ -507,8 +730,10 @@
     const question = questionEl.value.trim();
     if (!question) return;
 
+    archiveCurrentIfAny();
+
     askBtn.disabled = true;
-    renderLoading();
+    startLoadingSequence();
 
     try {
       const res = await fetch("/ask", {
@@ -520,7 +745,7 @@
       if (!res.ok) {
         throw new Error(data.detail || `Request failed (${res.status})`);
       }
-      renderAnswer(data);
+      renderAnswer(question, data);
     } catch (err) {
       renderError(err.message || "Something went wrong.");
     } finally {
@@ -530,6 +755,7 @@
 
   renderChips();
   loadEquipmentStatus();
+  loadRecentActivity();
 </script>
 </body>
 </html>

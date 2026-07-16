@@ -17,6 +17,8 @@ class AskResponse(BaseModel):
     retrieved_chunk_count: int
     groundedness: float | None = None
     relevance: float | None = None
+    latency_ms: float
+    model: str | None = None
 
 
 class EquipmentStatusItem(BaseModel):
@@ -26,8 +28,21 @@ class EquipmentStatusItem(BaseModel):
     last_event_date: str | None = None
     days_ago: int | None = None
     resolved: bool | None = None
+    severity: str | None = None
     status: str
 
 
 class EquipmentStatusResponse(BaseModel):
     units: list[EquipmentStatusItem]
+
+
+class RecentActivityItem(BaseModel):
+    equipment_id: str
+    alarm_code: str | None = None
+    date: str
+    days_ago: int
+    resolved: bool | None = None
+
+
+class RecentActivityResponse(BaseModel):
+    entries: list[RecentActivityItem]

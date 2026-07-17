@@ -8,6 +8,8 @@ class AskRequest(BaseModel):
 class SourceInfo(BaseModel):
     source_file: str
     section_title: str | None = None
+    log_id: str | None = None
+    alarm_code: str | None = None
     score: float
 
 

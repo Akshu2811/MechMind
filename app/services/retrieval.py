@@ -59,6 +59,8 @@ class RetrievedChunk:
     source_file: str
     section_title: str | None
     section_number: str | None
+    log_id: str | None
+    alarm_code: str | None
     score: float
 
 
@@ -162,6 +164,8 @@ def _to_chunk(point) -> RetrievedChunk:
         source_file=payload.get("source_file", "?"),
         section_title=payload.get("section_title"),
         section_number=payload.get("section_number"),
+        log_id=payload.get("log_id"),
+        alarm_code=payload.get("alarm_code"),
         score=point.score,
     )
 

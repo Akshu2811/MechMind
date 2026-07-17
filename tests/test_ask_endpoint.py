@@ -44,6 +44,8 @@ def _fake_chunk(i: int = 1) -> RetrievedChunk:
         source_file="pump_manual.md",
         section_title="4.2 Bearing Temperature High",
         section_number="4.2",
+        log_id=None,
+        alarm_code=None,
         score=0.9,
     )
 

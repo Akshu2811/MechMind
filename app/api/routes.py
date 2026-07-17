@@ -89,7 +89,13 @@ async def ask(request: AskRequest) -> AskResponse:
                 ) from exc
 
             sources = [
-                SourceInfo(source_file=c.source_file, section_title=c.section_title, score=c.score)
+                SourceInfo(
+                    source_file=c.source_file,
+                    section_title=c.section_title,
+                    log_id=c.log_id,
+                    alarm_code=c.alarm_code,
+                    score=c.score,
+                )
                 for c in result.sources
             ]
             latency_ms = (time.perf_counter() - t0) * 1000

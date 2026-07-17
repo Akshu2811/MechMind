@@ -953,15 +953,21 @@
     `;
 
     const sourceItems = (data.sources || [])
-      .map(
-        (s) => `
+      .map((s) => {
+        let detail = "";
+        if (s.section_title) {
+          detail = s.section_title;
+        } else if (s.log_id) {
+          detail = s.alarm_code ? `${s.log_id} (${s.alarm_code})` : s.log_id;
+        }
+        return `
         <li class="source-item">
           <span><span class="source-file">${escapeHtml(s.source_file)}</span>${
-            s.section_title ? `<span class="source-section">${escapeHtml(s.section_title)}</span>` : ""
+            detail ? `<span class="source-section">${escapeHtml(detail)}</span>` : ""
           }</span>
           <span class="source-score">${s.score.toFixed(3)}</span>
-        </li>`
-      )
+        </li>`;
+      })
       .join("");
 
     const sourceCount = data.retrieved_chunk_count;

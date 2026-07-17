@@ -4,32 +4,37 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>MechMind — Maintenance Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
+  rel="stylesheet"
+/>
 <style>
   :root {
-    --bg: #0c0e10;
-    --bg-elevated: #131619;
-    --bg-card: #181c20;
-    --bg-card-hover: #1e2328;
-    --border: #2a2f35;
-    --border-soft: #22262b;
-    --text: #e7e5e1;
-    --text-muted: #8d9399;
-    --text-faint: #62686e;
-    --accent: #d3a45c;
-    --accent-strong: #e8bd7a;
-    --accent-dim: #6b5433;
-    --green: #5e9e78;
-    --green-dim: #24322a;
-    --amber-status: #cf9b4a;
-    --amber-dim: #362c1c;
-    --red-status: #c0605a;
-    --red-dim: #382323;
-    --warn: #c9853f;
-    --neutral-btn: #e7e5e1;
-    --neutral-btn-hover: #f5f4f1;
-    --neutral-btn-text: #15181b;
-    --font-sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    --font-mono: ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", Menlo, monospace;
+    --bg: oklch(0.14 0.006 55);
+    --bg-elevated: oklch(0.18 0.01 55 / 0.6);
+    --bg-card: oklch(0.2 0.012 55 / 0.5);
+    --bg-card-hover: oklch(0.24 0.016 55 / 0.6);
+    --border: oklch(0.32 0.015 55 / 0.5);
+    --border-soft: oklch(0.3 0.014 55 / 0.35);
+    --text: oklch(0.93 0.005 60);
+    --text-muted: oklch(0.62 0.01 60);
+    --text-faint: oklch(0.5 0.01 60);
+    --accent: oklch(0.75 0.19 55);
+    --accent-strong: oklch(0.8 0.19 55);
+    --accent-dim: oklch(0.4 0.08 55);
+    --accent-crimson: oklch(0.6 0.21 30);
+    --green: oklch(0.7 0.17 145);
+    --green-dim: oklch(0.25 0.05 145 / 0.35);
+    --amber-status: oklch(0.75 0.17 70);
+    --amber-dim: oklch(0.3 0.06 70 / 0.35);
+    --red-status: oklch(0.6 0.22 25);
+    --red-dim: oklch(0.3 0.08 25 / 0.35);
+    --warn: oklch(0.7 0.19 45);
+    --btn-label: oklch(0.15 0.01 55);
+    --font-sans: "IBM Plex Sans", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", Menlo, monospace;
   }
 
   * { box-sizing: border-box; }
@@ -44,16 +49,42 @@
   }
 
   body {
+    position: relative;
     display: grid;
     grid-template-columns: 300px 1fr;
     height: 100vh;
     overflow: hidden;
   }
 
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(900px 900px at 15% -15%, oklch(0.55 0.2 35 / 0.32), transparent 70%),
+      radial-gradient(800px 800px at 100% -8%, oklch(0.5 0.2 20 / 0.26), transparent 70%),
+      radial-gradient(700px 700px at 35% 115%, oklch(0.6 0.18 60 / 0.16), transparent 70%);
+    filter: blur(60px);
+    animation: auroraDrift 20s ease-in-out infinite;
+  }
+
+  @keyframes auroraDrift {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(3%, -4%) scale(1.08); }
+  }
+
   /* ---------------- Sidebar ---------------- */
 
   #sidebar {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
     background: var(--bg-elevated);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border-right: 1px solid var(--border);
     overflow-y: auto;
     padding: 20px 16px;
@@ -127,9 +158,18 @@
     border-radius: 50%;
     flex-shrink: 0;
   }
-  .status-dot.status-green { background: var(--green); }
-  .status-dot.status-amber { background: var(--amber-status); }
-  .status-dot.status-red { background: var(--red-status); }
+  .status-dot.status-green { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .status-dot.status-amber { background: var(--amber-status); box-shadow: 0 0 8px var(--amber-status); }
+  .status-dot.status-red {
+    background: var(--red-status);
+    box-shadow: 0 0 8px var(--red-status);
+    animation: pulseDot 1.6s ease-in-out infinite;
+  }
+
+  @keyframes pulseDot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
 
   .status-label {
     font-size: 10px;
@@ -155,17 +195,32 @@
 
   .unit-meta .sep { margin: 0 5px; color: var(--text-faint); }
 
+  #fleet-summary {
+    margin-top: auto;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    font-size: 11.5px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  #fleet-summary .count { font-weight: 700; }
+  #fleet-summary .count-total { color: var(--accent-strong); }
+  #fleet-summary .count-critical { color: var(--red-status); }
+  #fleet-summary .count-warning { color: var(--amber-status); }
+
   /* ---------------- Main panel ---------------- */
 
   #main {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     overflow-y: auto;
     padding: 28px 36px 40px;
-    background:
-      radial-gradient(720px 380px at 22% -8%, rgba(211, 164, 92, 0.09), transparent 65%),
-      radial-gradient(620px 320px at 78% 2%, rgba(192, 96, 90, 0.055), transparent 65%),
-      var(--bg);
+    background: transparent;
   }
 
   header.top {
@@ -232,23 +287,35 @@
 
   #question:focus {
     outline: none;
-    border-color: var(--accent-dim);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px oklch(0.6 0.19 55 / 0.15), 0 0 24px oklch(0.6 0.19 45 / 0.2);
   }
 
   #ask-btn {
-    background: var(--neutral-btn);
-    color: var(--neutral-btn-text);
+    background: linear-gradient(135deg, var(--accent-strong), var(--accent-crimson));
+    color: var(--btn-label);
     border: none;
-    border-radius: 8px;
-    padding: 0 22px;
+    border-radius: 10px;
+    padding: 0 28px;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
-    transition: background 0.12s ease;
+    box-shadow: 0 0 20px oklch(0.65 0.2 45 / 0.5), 0 4px 12px oklch(0.1 0 0 / 0.35);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
 
-  #ask-btn:hover:not(:disabled) { background: var(--neutral-btn-hover); }
-  #ask-btn:disabled { background: var(--border); color: var(--text-faint); cursor: default; }
+  #ask-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 0 28px oklch(0.65 0.2 45 / 0.65), 0 6px 16px oklch(0.1 0 0 / 0.4);
+  }
+
+  #ask-btn:disabled {
+    background: var(--border);
+    color: var(--text-faint);
+    cursor: default;
+    box-shadow: none;
+    transform: none;
+  }
 
   /* ---------------- History (collapsed prior Q&A) ---------------- */
 
@@ -329,8 +396,7 @@
     margin-bottom: 0;
   }
 
-  .answer-text ul,
-  .answer-text ol {
+  .answer-text ul {
     margin: 0 0 12px;
     padding-left: 22px;
   }
@@ -341,6 +407,45 @@
 
   .answer-text strong {
     font-weight: 700;
+    color: var(--text);
+  }
+
+  /* Step cards: real rendered <ol> items from the model's answer, styled as
+     highlighted steps. A single consistent accent (not a red/amber/green
+     cycle) -- that palette is reserved for equipment status elsewhere, and
+     using it here would misleadingly imply severity on ordinary steps. */
+  .answer-text ol.step-list {
+    list-style: none;
+    margin: 0 0 12px;
+    padding-left: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .answer-text ol.step-list > li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: oklch(0.75 0.19 55 / 0.08);
+    border-left: 2px solid var(--accent);
+    margin-bottom: 0;
+  }
+
+  .step-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-strong);
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding-top: 1px;
+  }
+
+  .step-body {
+    font-size: 13.5px;
     color: var(--text);
   }
 
@@ -364,46 +469,54 @@
 
   .badge {
     display: inline-flex;
-    align-items: stretch;
-    height: 22px;
-    font-size: 11px;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 11.5px;
     font-weight: 600;
-    padding-right: 10px;
-    border-radius: 4px;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.03em;
+  }
+
+  .badge-track {
+    width: 46px;
+    height: 5px;
+    border-radius: 3px;
+    background: oklch(0.3 0.02 55 / 0.6);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .badge-fill {
+    height: 100%;
+    border-radius: 3px;
+  }
+
+  .badge-text {
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+  }
+
+  .badge-good {
+    background: oklch(0.7 0.17 145 / 0.12);
+    border: 1px solid oklch(0.7 0.17 145 / 0.4);
+    color: oklch(0.75 0.17 145);
+  }
+  .badge-good .badge-fill { background: oklch(0.7 0.17 145); box-shadow: 0 0 6px oklch(0.7 0.17 145 / 0.8); }
+
+  .badge-warn {
+    background: oklch(0.75 0.17 70 / 0.12);
+    border: 1px solid oklch(0.75 0.17 70 / 0.4);
+    color: oklch(0.8 0.17 70);
+  }
+  .badge-warn .badge-fill { background: oklch(0.75 0.17 70); box-shadow: 0 0 6px oklch(0.75 0.17 70 / 0.8); }
+
+  .badge-neutral {
     background: var(--bg-card);
     border: 1px solid var(--border);
-    overflow: hidden;
+    color: var(--text-faint);
   }
-
-  .badge-bar {
-    width: 4px;
-    flex-shrink: 0;
-    margin-right: 8px;
-  }
-
-  .badge-label {
-    display: flex;
-    align-items: center;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    margin-right: 6px;
-  }
-
-  .badge-pct {
-    display: flex;
-    align-items: center;
-    font-family: var(--font-mono);
-  }
-
-  .badge-good .badge-bar { background: var(--green); }
-  .badge-good .badge-pct { color: var(--green); }
-
-  .badge-warn .badge-bar { background: var(--amber-status); }
-  .badge-warn .badge-pct { color: var(--amber-status); }
-
-  .badge-neutral .badge-bar { background: var(--text-faint); }
-  .badge-neutral .badge-pct { color: var(--text-faint); }
+  .badge-neutral .badge-fill { background: var(--text-faint); }
 
   details.sources {
     border-top: 1px solid var(--border-soft);
@@ -558,6 +671,7 @@
     <h2>Equipment Status</h2>
     <p class="hint">Click a unit to draft a status question</p>
     <div id="unit-list"></div>
+    <div id="fleet-summary"></div>
   </aside>
 
   <main id="main">
@@ -606,6 +720,7 @@
   const askForm = document.getElementById("ask-form");
   const askBtn = document.getElementById("ask-btn");
   const unitListEl = document.getElementById("unit-list");
+  const fleetSummaryEl = document.getElementById("fleet-summary");
   const chipsEl = document.getElementById("chips");
   const activityListEl = document.getElementById("activity-list");
 
@@ -663,12 +778,24 @@
     }
   }
 
+  function renderFleetSummary(units) {
+    const total = units.length;
+    const critical = units.filter((u) => u.status === "red").length;
+    const warning = units.filter((u) => u.status === "amber").length;
+    fleetSummaryEl.innerHTML = `
+      <span class="count count-total">${total}</span> units monitored &middot;
+      <span class="count count-critical">${critical}</span> critical &middot;
+      <span class="count count-warning">${warning}</span> warning
+    `;
+  }
+
   async function loadEquipmentStatus() {
     try {
       const res = await fetch("/equipment/status");
       if (!res.ok) throw new Error(`status ${res.status}`);
       const data = await res.json();
       renderUnits(data.units);
+      renderFleetSummary(data.units);
     } catch (err) {
       unitListEl.innerHTML = `<p class="error-text" style="font-size:12px;">Couldn't load equipment status.</p>`;
       console.error("equipment status load failed", err);
@@ -715,11 +842,11 @@
   function scoreBadge(label, score) {
     const labelUpper = label.toUpperCase();
     if (score === null || score === undefined) {
-      return `<span class="badge badge-neutral"><span class="badge-bar"></span><span class="badge-label">${labelUpper}</span><span class="badge-pct">N/A</span></span>`;
+      return `<span class="badge badge-neutral"><span class="badge-track"><span class="badge-fill" style="width:0%"></span></span><span class="badge-text">${labelUpper} N/A</span></span>`;
     }
     const pct = Math.round(score * 100);
     const cls = score >= 0.7 ? "badge-good" : "badge-warn";
-    return `<span class="badge ${cls}"><span class="badge-bar"></span><span class="badge-label">${labelUpper}</span><span class="badge-pct">${pct}%</span></span>`;
+    return `<span class="badge ${cls}"><span class="badge-track"><span class="badge-fill" style="width:${pct}%"></span></span><span class="badge-text">${labelUpper} ${pct}%</span></span>`;
   }
 
   function escapeHtml(str) {
@@ -761,11 +888,14 @@
 
     function flushList() {
       if (!currentList) return;
-      const items = currentList.items.map((item) => `<li>${item}</li>`).join("");
       if (currentList.tag === "ol") {
-        blocks.push(`<ol start="${orderedCount + 1}">${items}</ol>`);
+        const items = currentList.items
+          .map((item, idx) => `<li><span class="step-label">STEP ${orderedCount + idx + 1}</span><span class="step-body">${item}</span></li>`)
+          .join("");
+        blocks.push(`<ol class="step-list">${items}</ol>`);
         orderedCount += currentList.items.length;
       } else {
+        const items = currentList.items.map((item) => `<li>${item}</li>`).join("");
         blocks.push(`<ul>${items}</ul>`);
       }
       currentList = null;

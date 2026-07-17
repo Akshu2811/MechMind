@@ -318,8 +318,30 @@
   .answer-text {
     font-size: 14.5px;
     line-height: 1.65;
-    white-space: pre-wrap;
     margin: 0 0 10px;
+  }
+
+  .answer-text p {
+    margin: 0 0 12px;
+  }
+
+  .answer-text p:last-child {
+    margin-bottom: 0;
+  }
+
+  .answer-text ul,
+  .answer-text ol {
+    margin: 0 0 12px;
+    padding-left: 22px;
+  }
+
+  .answer-text li {
+    margin-bottom: 4px;
+  }
+
+  .answer-text strong {
+    font-weight: 700;
+    color: var(--text);
   }
 
   .trust-caption {
@@ -706,6 +728,85 @@
     return div.innerHTML;
   }
 
+  // Lightweight, regex-based markdown -> HTML for LLM answer text. Escapes
+  // HTML first so nothing in the source can inject tags, then handles just
+  // enough markdown for how the model formats answers: **bold**, numbered/
+  // bulleted lists, and paragraph/line breaks. Inline formatting is applied
+  // per-line (before assembling paragraphs/lists) so a "**" pair can't
+  // accidentally span across list items or paragraphs.
+  function applyInlineMarkdown(line) {
+    return line.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  }
+
+  function renderMarkdown(raw) {
+    const lines = escapeHtml(raw).split("\n");
+    const blocks = [];
+    let paragraphLines = [];
+    let currentList = null; // { tag: "ul" | "ol", items: [] }
+    // A numbered list is often interrupted by a blank line or an indented
+    // bullet sub-list (e.g. "1. Step\n- detail\n- detail\n2. Step"). Since
+    // this parser has no notion of nesting, that interruption would
+    // otherwise force a brand-new <ol> and restart the visible numbering at
+    // 1. Tracking a running count and rendering each <ol> with a `start`
+    // attribute keeps the numbers continuous across such interruptions --
+    // only a real prose paragraph resets it, since that's a genuine break.
+    let orderedCount = 0;
+
+    function flushParagraph() {
+      if (paragraphLines.length) {
+        blocks.push(`<p>${paragraphLines.join("<br>")}</p>`);
+        paragraphLines = [];
+      }
+    }
+
+    function flushList() {
+      if (!currentList) return;
+      const items = currentList.items.map((item) => `<li>${item}</li>`).join("");
+      if (currentList.tag === "ol") {
+        blocks.push(`<ol start="${orderedCount + 1}">${items}</ol>`);
+        orderedCount += currentList.items.length;
+      } else {
+        blocks.push(`<ul>${items}</ul>`);
+      }
+      currentList = null;
+    }
+
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (line === "") {
+        flushParagraph();
+        continue;
+      }
+
+      const numbered = line.match(/^\d+\.\s+(.*)$/);
+      const bulleted = line.match(/^[-*]\s+(.*)$/);
+
+      if (numbered) {
+        flushParagraph();
+        if (!currentList || currentList.tag !== "ol") {
+          flushList();
+          currentList = { tag: "ol", items: [] };
+        }
+        currentList.items.push(applyInlineMarkdown(numbered[1]));
+      } else if (bulleted) {
+        flushParagraph();
+        if (!currentList || currentList.tag !== "ul") {
+          flushList();
+          currentList = { tag: "ul", items: [] };
+        }
+        currentList.items.push(applyInlineMarkdown(bulleted[1]));
+      } else {
+        flushList();
+        orderedCount = 0;
+        paragraphLines.push(applyInlineMarkdown(line));
+      }
+    }
+    flushParagraph();
+    flushList();
+
+    return blocks.join("");
+  }
+
   function trustCaption(data) {
     const parts = [`Answered in ${(data.latency_ms / 1000).toFixed(1)}s`];
     parts.push(`${data.retrieved_chunk_count} source${data.retrieved_chunk_count === 1 ? "" : "s"} retrieved`);
@@ -742,7 +843,7 @@
     `;
 
     return `
-      <p class="answer-text">${escapeHtml(data.answer)}</p>
+      <div class="answer-text">${renderMarkdown(data.answer)}</div>
       <p class="trust-caption">${trustCaption(data)}</p>
       ${badges}
       ${sources}

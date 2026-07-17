@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass
 
@@ -38,8 +39,12 @@ maintenance questions strictly from the provided context excerpts.
 Rules:
 - Answer ONLY using the information in the context below. Never use outside or general \
 knowledge, even if you know the answer.
-- For every claim or step in your answer, cite the source it came from in the format \
-[source_file, section_title].
+- Each context excerpt begins with its citation already formatted in square brackets, e.g. \
+[pump_manual.md, Section 4.4] or [maintenance_logs.csv, LOG-0054]. For every claim or step in \
+your answer, copy that exact bracketed citation verbatim from the excerpt it came from. Do not \
+invent a different citation format, and never write the literal words "source_file" or \
+"section_title" -- always substitute the real filename and section/log identifier shown in \
+the excerpt's own bracketed citation.
 - If the context does not contain enough information to answer the question, respond with \
 exactly this sentence and nothing else: "{NO_INFO_MESSAGE}"
 """
@@ -73,11 +78,37 @@ class GenerationResult:
     relevance: float | None = None
 
 
+# Matches chunk_maintenance_log's fixed text template (ingestion.py):
+# "Log {log_id} -- {equipment_id} (...) on {date}: ..." -- log chunks have no
+# section_title/section_number (those are manual-chunk-only fields), so the
+# log_id embedded in the chunk's own text is the only per-chunk identifier
+# available to cite by.
+_LOG_ID_RE = re.compile(r"^Log\s+(\S+)\s+--")
+
+
+def _citation_label(chunk: RetrievedChunk) -> str:
+    """Returns the exact "source_file, detail" citation text this chunk
+    should be cited as -- e.g. "pump_manual.md, Section 4.4" or
+    "maintenance_logs.csv, LOG-0054". This is embedded directly in the
+    context (see _format_context) so the model only has to copy a
+    ready-made bracketed citation verbatim instead of assembling one from
+    separate source_file/section_title fields, which is what produced
+    citations like "[source_file, log LOG-0054]" (the literal field name
+    instead of its value) before."""
+    if chunk.section_number:
+        detail = f"Section {chunk.section_number}"
+    elif chunk.section_title:
+        detail = chunk.section_title
+    else:
+        m = _LOG_ID_RE.match(chunk.text)
+        detail = m.group(1) if m else "N/A"
+    return f"{chunk.source_file}, {detail}"
+
+
 def _format_context(chunks: list[RetrievedChunk]) -> str:
     parts = []
-    for i, c in enumerate(chunks, start=1):
-        section = c.section_title or "N/A"
-        parts.append(f"[{i}] Source: {c.source_file} | Section: {section}\n{c.text}")
+    for c in chunks:
+        parts.append(f"[{_citation_label(c)}]\n{c.text}")
     return "\n\n".join(parts)
 
 

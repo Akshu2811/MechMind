@@ -593,8 +593,15 @@
 
   /* ---------------- Knowledge graph panel ---------------- */
 
+  /* #main is a column flex container. A flex item's automatic min-height
+     resets to 0 once it has non-"visible" overflow (needed here to clip the
+     rounded-corner glow) -- without flex-shrink:0, once #result grows tall
+     enough to overflow #main, the shrink algorithm collapses this panel
+     toward 0 instead of scrolling, since siblings with default overflow
+     keep a content-based floor and this one doesn't. */
   #kg-panel {
     position: relative;
+    flex-shrink: 0;
     margin-bottom: 24px;
     border-radius: 10px;
     overflow: hidden;
@@ -747,14 +754,6 @@
 
     <div id="chips"></div>
 
-    <form id="ask-form">
-      <textarea id="question" placeholder="Ask about an alarm code, equipment history, or installation conditions..."></textarea>
-      <button id="ask-btn" type="submit">Ask</button>
-    </form>
-
-    <div id="history"></div>
-    <div id="result"></div>
-
     <section id="kg-panel">
       <div id="kg-header">
         <h2>Knowledge Graph</h2>
@@ -763,6 +762,14 @@
       <p id="kg-placeholder">Click an equipment unit in the sidebar to explore its knowledge graph.</p>
       <div id="kg-network" style="display: none;"></div>
     </section>
+
+    <form id="ask-form">
+      <textarea id="question" placeholder="Ask about an alarm code, equipment history, or installation conditions..."></textarea>
+      <button id="ask-btn" type="submit">Ask</button>
+    </form>
+
+    <div id="history"></div>
+    <div id="result"></div>
 
     <section id="activity">
       <div class="activity-header">

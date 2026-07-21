@@ -8,12 +8,14 @@ from app.models.schemas import (
     AskResponse,
     EquipmentStatusItem,
     EquipmentStatusResponse,
+    KnowledgeGraphResponse,
     RecentActivityItem,
     RecentActivityResponse,
     SourceInfo,
 )
 from app.services.equipment_status import get_equipment_status, get_recent_activity
 from app.services.generation import GENERATION_MODEL, GenerationError, generate_answer
+from app.services.knowledge_graph import get_knowledge_graph
 from app.services.observability import observation, safe_flush
 from app.services.retrieval import RetrievalError, search
 
@@ -147,6 +149,12 @@ async def equipment_status() -> EquipmentStatusResponse:
             for u in units
         ]
     )
+
+
+@router.get("/knowledge-graph", response_model=KnowledgeGraphResponse)
+async def knowledge_graph(equipment: str | None = None) -> KnowledgeGraphResponse:
+    data = get_knowledge_graph(equipment)
+    return KnowledgeGraphResponse(nodes=data["nodes"], edges=data["edges"])
 
 
 @router.get("/equipment/recent-activity", response_model=RecentActivityResponse)

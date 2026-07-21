@@ -48,3 +48,21 @@ class RecentActivityItem(BaseModel):
 
 class RecentActivityResponse(BaseModel):
     entries: list[RecentActivityItem]
+
+
+class KnowledgeGraphNode(BaseModel):
+    id: str
+    type: str
+    label: str
+    severity: str | None = None
+
+
+class KnowledgeGraphEdge(BaseModel):
+    source: str
+    target: str
+    type: str
+
+
+class KnowledgeGraphResponse(BaseModel):
+    nodes: list[KnowledgeGraphNode]
+    edges: list[KnowledgeGraphEdge]

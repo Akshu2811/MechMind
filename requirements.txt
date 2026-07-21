@@ -4,6 +4,7 @@ pydantic
 pydantic-settings
 python-dotenv
 qdrant-client
+networkx
 openai
 langchain-openai
 langfuse

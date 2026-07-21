@@ -591,6 +591,71 @@
     flex-shrink: 0;
   }
 
+  /* ---------------- Knowledge graph panel ---------------- */
+
+  #kg-panel {
+    position: relative;
+    margin-bottom: 24px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+  }
+
+  #kg-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(500px 400px at 15% 0%, oklch(0.55 0.2 35 / 0.2), transparent 70%),
+      radial-gradient(420px 360px at 100% 100%, oklch(0.5 0.2 20 / 0.16), transparent 70%);
+    filter: blur(48px);
+  }
+
+  #kg-header {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 14px 18px 0;
+  }
+
+  #kg-header h2 {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0;
+    font-weight: 600;
+  }
+
+  #kg-subtitle {
+    font-size: 12px;
+    color: var(--text-faint);
+  }
+
+  #kg-network {
+    position: relative;
+    z-index: 1;
+    height: 460px;
+    margin: 12px 18px 18px;
+    border-radius: 8px;
+    background: oklch(0.11 0.006 55 / 0.55);
+  }
+
+  #kg-placeholder {
+    position: relative;
+    z-index: 1;
+    padding: 36px 18px 30px;
+    text-align: center;
+    color: var(--text-faint);
+    font-size: 12.5px;
+  }
+
   /* ---------------- Recent activity feed ---------------- */
 
   #activity {
@@ -690,6 +755,15 @@
     <div id="history"></div>
     <div id="result"></div>
 
+    <section id="kg-panel">
+      <div id="kg-header">
+        <h2>Knowledge Graph</h2>
+        <span id="kg-subtitle"></span>
+      </div>
+      <p id="kg-placeholder">Click an equipment unit in the sidebar to explore its knowledge graph.</p>
+      <div id="kg-network" style="display: none;"></div>
+    </section>
+
     <section id="activity">
       <div class="activity-header">
         <h2><span class="pulse-dot"></span>Recent Activity</h2>
@@ -699,6 +773,7 @@
     </section>
   </main>
 
+<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
 <script>
   const EXAMPLE_QUESTIONS = [
     "What is the recommended action for OIL_PRESS_03?",
@@ -723,6 +798,9 @@
   const fleetSummaryEl = document.getElementById("fleet-summary");
   const chipsEl = document.getElementById("chips");
   const activityListEl = document.getElementById("activity-list");
+  const kgNetworkEl = document.getElementById("kg-network");
+  const kgPlaceholderEl = document.getElementById("kg-placeholder");
+  const kgSubtitleEl = document.getElementById("kg-subtitle");
 
   let loadingTimers = [];
   let history = []; // { question, html }
@@ -773,7 +851,10 @@
         ${u.last_alarm_code ? `<div class="unit-alarm">${u.last_alarm_code}</div>` : ""}
         <div class="unit-meta">${meta}</div>
       `;
-      card.addEventListener("click", () => fillQuestion(`What's the status of ${u.equipment_id}?`));
+      card.addEventListener("click", () => {
+        fillQuestion(`What's the status of ${u.equipment_id}?`);
+        loadKnowledgeGraph(u.equipment_id);
+      });
       unitListEl.appendChild(card);
     }
   }
@@ -1071,6 +1152,213 @@
   renderChips();
   loadEquipmentStatus();
   loadRecentActivity();
+
+  // ---------------- Knowledge graph panel ----------------
+
+  const KG_TYPE_COLOR = {
+    Equipment: "#e8a838",
+    Document: "#5b6c7d",
+    LogEntry: "#4a4a4a",
+  };
+
+  const KG_TYPE_SIZE = {
+    Equipment: 24,
+    Document: 13,
+    LogEntry: 7,
+    AlarmCode: 16,
+  };
+
+  // Higher mass on the labeled types (Equipment, AlarmCode) increases the
+  // repulsive force they exert on their neighbors in forceAtlas2Based, so
+  // they push each other further apart -- spreading out the always-visible
+  // labels that would otherwise crowd together. Document/LogEntry stay at
+  // the default so they don't get shoved out of a tight, readable cluster.
+  const KG_TYPE_MASS = {
+    Equipment: 3,
+    AlarmCode: 2,
+    Document: 1,
+    LogEntry: 1,
+  };
+
+
+  const KG_NETWORK_OPTIONS = {
+    autoResize: true,
+    nodes: {
+      shape: "dot",
+      borderWidth: 1,
+      borderWidthSelected: 2,
+      font: { face: "IBM Plex Sans", color: "#cfd0d3", size: 12 },
+      scaling: { min: 6, max: 30 },
+    },
+    edges: {
+      color: { color: "rgba(255,255,255,0.15)" },
+      width: 1,
+      smooth: { type: "continuous" },
+      arrows: { to: { enabled: true, scaleFactor: 0.4 } },
+    },
+    physics: {
+      solver: "forceAtlas2Based",
+      forceAtlas2Based: {
+        gravitationalConstant: -85,
+        centralGravity: 0.012,
+        springLength: 120,
+        springConstant: 0.16,
+        damping: 0.5,
+        avoidOverlap: 1,
+      },
+      stabilization: { enabled: true, iterations: 220, fit: true },
+      timestep: 0.4,
+      minVelocity: 0.75,
+    },
+    interaction: {
+      hover: true,
+      tooltipDelay: 100,
+    },
+  };
+
+  let kgNetwork = null;
+  let kgNodesDataSet = null;
+  let kgEdgesDataSet = null;
+  let kgPinnedNode = null;
+
+  function kgAlarmColor(severity) {
+    const s = (severity || "").toLowerCase();
+    return s === "critical" || s === "safety" ? "#e5484d" : "#d99a3d";
+  }
+
+  function kgNodeColor(node) {
+    if (node.type === "AlarmCode") return kgAlarmColor(node.severity);
+    return KG_TYPE_COLOR[node.type] || "#888888";
+  }
+
+  function kgAlwaysLabeled(type) {
+    return type === "Equipment" || type === "AlarmCode";
+  }
+
+  function kgResetHighlight() {
+    if (!kgNodesDataSet || !kgEdgesDataSet) return;
+    kgNodesDataSet.forEach((n) => {
+      kgNodesDataSet.update({
+        id: n.id,
+        opacity: 1,
+        label: kgAlwaysLabeled(n.kgType) ? n.kgLabel : "",
+      });
+    });
+    kgEdgesDataSet.forEach((e) => {
+      kgEdgesDataSet.update({ id: e.id, color: { color: "rgba(255,255,255,0.15)" } });
+    });
+  }
+
+  function kgApplyHighlight(nodeId) {
+    if (!kgNetwork) return;
+    const connected = new Set(kgNetwork.getConnectedNodes(nodeId));
+    connected.add(nodeId);
+    const connectedEdges = new Set(kgNetwork.getConnectedEdges(nodeId));
+
+    kgNodesDataSet.forEach((n) => {
+      const active = connected.has(n.id);
+      kgNodesDataSet.update({
+        id: n.id,
+        opacity: active ? 1 : 0.15,
+        label: active || kgAlwaysLabeled(n.kgType) ? n.kgLabel : "",
+      });
+    });
+    kgEdgesDataSet.forEach((e) => {
+      const active = connectedEdges.has(e.id);
+      kgEdgesDataSet.update({
+        id: e.id,
+        color: { color: active ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.04)" },
+      });
+    });
+  }
+
+  function renderKnowledgeGraph(equipmentId, data) {
+    kgPinnedNode = null;
+    kgPlaceholderEl.style.display = "none";
+    kgNetworkEl.style.display = "block";
+    kgSubtitleEl.textContent = `${data.nodes.length} nodes · ${equipmentId}`;
+
+    const visNodes = data.nodes.map((n) => ({
+      id: n.id,
+      kgType: n.type,
+      kgLabel: n.label,
+      label: kgAlwaysLabeled(n.type) ? n.label : "",
+      shape: "dot",
+      size: KG_TYPE_SIZE[n.type] || 10,
+      mass: KG_TYPE_MASS[n.type] || 1,
+      color: { background: kgNodeColor(n), border: kgNodeColor(n) },
+      opacity: 1,
+      title: `${n.type}: ${n.label}${n.severity ? ` (${n.severity})` : ""}`,
+    }));
+
+    const visEdges = data.edges.map((e, idx) => ({
+      id: `${e.source}->${e.target}:${e.type}:${idx}`,
+      from: e.source,
+      to: e.target,
+      title: e.type,
+    }));
+
+    if (kgNetwork) {
+      kgNetwork.destroy();
+      kgNetwork = null;
+    }
+
+    kgNodesDataSet = new vis.DataSet(visNodes);
+    kgEdgesDataSet = new vis.DataSet(visEdges);
+
+    kgNetwork = new vis.Network(
+      kgNetworkEl,
+      { nodes: kgNodesDataSet, edges: kgEdgesDataSet },
+      KG_NETWORK_OPTIONS
+    );
+
+    kgNetwork.once("stabilizationIterationsDone", () => {
+      kgNetwork.setOptions({ physics: false });
+      // fit() sizes to the node centers, so outermost labels can land right
+      // at (or past) the canvas edge. Zoom out 10% from there as a margin.
+      kgNetwork.moveTo({
+        position: kgNetwork.getViewPosition(),
+        scale: kgNetwork.getScale() * 0.9,
+        animation: false,
+      });
+    });
+
+    kgNetwork.on("hoverNode", (params) => {
+      if (kgPinnedNode) return;
+      kgApplyHighlight(params.node);
+    });
+    kgNetwork.on("blurNode", () => {
+      if (kgPinnedNode) return;
+      kgResetHighlight();
+    });
+    kgNetwork.on("click", (params) => {
+      if (params.nodes.length) {
+        kgPinnedNode = params.nodes[0];
+        kgApplyHighlight(kgPinnedNode);
+      } else {
+        kgPinnedNode = null;
+        kgResetHighlight();
+      }
+    });
+  }
+
+  async function loadKnowledgeGraph(equipmentId) {
+    kgPlaceholderEl.style.display = "block";
+    kgPlaceholderEl.textContent = `Loading knowledge graph for ${equipmentId}...`;
+    kgNetworkEl.style.display = "none";
+    kgSubtitleEl.textContent = "";
+    try {
+      const res = await fetch(`/knowledge-graph?equipment=${encodeURIComponent(equipmentId)}`);
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const data = await res.json();
+      renderKnowledgeGraph(equipmentId, data);
+    } catch (err) {
+      kgPlaceholderEl.style.display = "block";
+      kgPlaceholderEl.textContent = `Couldn't load the knowledge graph for ${equipmentId}.`;
+      kgNetworkEl.style.display = "none";
+      console.error("knowledge graph load failed", err);
+    }
+  }
 </script>
 </body>
 </html>

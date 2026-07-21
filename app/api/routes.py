@@ -6,6 +6,8 @@ from fastapi import APIRouter, HTTPException
 from app.models.schemas import (
     AskRequest,
     AskResponse,
+    ComplianceItem,
+    ComplianceResponse,
     EquipmentStatusItem,
     EquipmentStatusResponse,
     KnowledgeGraphResponse,
@@ -13,6 +15,7 @@ from app.models.schemas import (
     RecentActivityResponse,
     SourceInfo,
 )
+from app.services.compliance import get_compliance_status
 from app.services.equipment_status import get_equipment_status, get_recent_activity
 from app.services.generation import GENERATION_MODEL, GenerationError, generate_answer
 from app.services.knowledge_graph import get_knowledge_graph
@@ -155,6 +158,22 @@ async def equipment_status() -> EquipmentStatusResponse:
 async def knowledge_graph(equipment: str | None = None) -> KnowledgeGraphResponse:
     data = get_knowledge_graph(equipment)
     return KnowledgeGraphResponse(nodes=data["nodes"], edges=data["edges"])
+
+
+@router.get("/compliance", response_model=ComplianceResponse)
+async def compliance() -> ComplianceResponse:
+    units = get_compliance_status()
+    return ComplianceResponse(
+        units=[
+            ComplianceItem(
+                equipment_id=u.equipment_id,
+                equipment_type=u.equipment_type,
+                compliant=u.compliant,
+                reasons=u.reasons,
+            )
+            for u in units
+        ]
+    )
 
 
 @router.get("/equipment/recent-activity", response_model=RecentActivityResponse)

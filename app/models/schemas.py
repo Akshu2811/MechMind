@@ -66,3 +66,14 @@ class KnowledgeGraphEdge(BaseModel):
 class KnowledgeGraphResponse(BaseModel):
     nodes: list[KnowledgeGraphNode]
     edges: list[KnowledgeGraphEdge]
+
+
+class ComplianceItem(BaseModel):
+    equipment_id: str
+    equipment_type: str
+    compliant: bool
+    reasons: list[str] = []
+
+
+class ComplianceResponse(BaseModel):
+    units: list[ComplianceItem]

@@ -152,6 +152,34 @@
     flex-shrink: 0;
   }
 
+  .compliance-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    font-size: 9px;
+    line-height: 1;
+    flex-shrink: 0;
+    cursor: default;
+  }
+  .compliance-badge.compliant {
+    color: var(--green);
+    background: var(--green-dim);
+    border: 1px solid oklch(0.7 0.17 145 / 0.4);
+  }
+  .compliance-badge.gap {
+    color: var(--red-status);
+    background: var(--red-dim);
+    border: 1px solid oklch(0.6 0.22 25 / 0.5);
+  }
+  .compliance-badge.unknown {
+    color: var(--text-faint);
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+  }
+
   .status-dot {
     width: 8px;
     height: 8px;
@@ -836,7 +864,18 @@
     return "⚠ Recent";
   }
 
-  function renderUnits(units) {
+  function complianceBadgeHtml(compliance) {
+    if (!compliance) {
+      return `<span class="compliance-badge unknown" title="Compliance status unavailable">?</span>`;
+    }
+    if (compliance.compliant) {
+      return `<span class="compliance-badge compliant" title="Compliant — no gaps detected">&#10003;</span>`;
+    }
+    const reasonText = compliance.reasons.join("\n");
+    return `<span class="compliance-badge gap" title="${escapeHtml(reasonText)}">&#9873;</span>`;
+  }
+
+  function renderUnits(units, complianceByEid) {
     unitListEl.innerHTML = "";
     for (const u of units) {
       const card = document.createElement("div");
@@ -850,6 +889,7 @@
         <div class="row-top">
           <span class="unit-id">${u.equipment_id}</span>
           <span class="status-indicator">
+            ${complianceBadgeHtml((complianceByEid || {})[u.equipment_id])}
             <span class="status-label status-${u.status}">${statusLabel(u.status)}</span>
             <span class="status-dot status-${u.status}"></span>
           </span>
@@ -862,6 +902,10 @@
         fillQuestion(`What's the status of ${u.equipment_id}?`);
         loadKnowledgeGraph(u.equipment_id);
       });
+      const badgeEl = card.querySelector(".compliance-badge");
+      if (badgeEl) {
+        badgeEl.addEventListener("click", (e) => e.stopPropagation());
+      }
       unitListEl.appendChild(card);
     }
   }
@@ -877,12 +921,26 @@
     `;
   }
 
-  async function loadEquipmentStatus() {
+  async function loadCompliance() {
     try {
-      const res = await fetch("/equipment/status");
+      const res = await fetch("/compliance");
       if (!res.ok) throw new Error(`status ${res.status}`);
       const data = await res.json();
-      renderUnits(data.units);
+      const byEid = {};
+      for (const item of data.units) byEid[item.equipment_id] = item;
+      return byEid;
+    } catch (err) {
+      console.error("compliance load failed", err);
+      return {};
+    }
+  }
+
+  async function loadEquipmentStatus() {
+    try {
+      const [res, complianceByEid] = await Promise.all([fetch("/equipment/status"), loadCompliance()]);
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const data = await res.json();
+      renderUnits(data.units, complianceByEid);
       renderFleetSummary(data.units);
     } catch (err) {
       unitListEl.innerHTML = `<p class="error-text" style="font-size:12px;">Couldn't load equipment status.</p>`;

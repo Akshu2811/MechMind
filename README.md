@@ -13,7 +13,7 @@ Hosted on Render's free tier — if it hasn't had traffic recently, the first re
 
 ## The Problem
 
-Industrial maintenance teams lose real time hunting across scattered PDFs, equipment manuals, and paper or spreadsheet maintenance logs just to answer routine questions like "what does this alarm code mean" or "has this unit had this problem before." That knowledge is also concentrated in a shrinking pool of experienced technicians — when they retire or move on, the institutional knowledge of *why* a unit behaves a certain way often leaves with them, undocumented. MechMind addresses this as a response to ET AI Hackathon 2026's Problem Statement 8, "Industrial Knowledge Intelligence": making an equipment fleet's manuals, maintenance history, and regulatory obligations queryable, cross-referenced, and auditable through one interface instead of three disconnected ones.
+Industrial maintenance teams lose real time hunting across scattered PDFs, equipment manuals, and paper or spreadsheet maintenance logs just to answer routine questions like "what does this alarm code mean" or "has this unit had this problem before." That knowledge is also concentrated in a shrinking pool of experienced technicians — when they retire or move on, the institutional knowledge of *why* a unit behaves a certain way often leaves with them, undocumented. MechMind makes an equipment fleet's manuals, maintenance history, and regulatory obligations queryable, cross-referenced, and auditable through one interface instead of three disconnected ones.
 
 ## Architecture
 
@@ -141,4 +141,4 @@ docs/
 
 ## License / Disclaimer
 
-This is a portfolio/hackathon project (ET AI Hackathon 2026). No license file is currently included. All equipment manuals, maintenance logs, and the regulatory standard used are fully synthetic, generated for demonstration purposes — there is no affiliation with any real manufacturer, company, or regulatory body, and nothing in this repository should be treated as real regulatory or engineering guidance.
+This is a personal portfolio project. No license file is currently included. All equipment manuals, maintenance logs, and the regulatory standard used are fully synthetic, generated for demonstration purposes — there is no affiliation with any real manufacturer, company, or regulatory body, and nothing in this repository should be treated as real regulatory or engineering guidance.
